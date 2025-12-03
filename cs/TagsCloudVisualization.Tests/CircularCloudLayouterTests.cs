@@ -1,32 +1,65 @@
 using System.Drawing;
+using NUnit.Framework.Interfaces;
 using TagsCloudVisualization.CoordinateGenerators;
+using TagsCloudVisualization.Drawers;
 
 namespace TagsCloudVisualization.Tests;
 
 [TestFixture]
 public class CircularCloudLayouterTests
 {
+    private CircularCloudLayouter _layouter;
+    private Point _center;
+    private string _testName;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _center = new Point(100, 100);
+        var generator = new SpiralCoordinateGenerator(_center, 0.1);
+        _layouter = new CircularCloudLayouter(_center, generator);
+        _testName = TestContext.CurrentContext.Test.Name;
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        if (TestContext.CurrentContext.Result.Outcome.Status == TestStatus.Failed)
+        {
+            SaveVisualization();
+        }
+    }
+
+    private void SaveVisualization()
+    {
+        var outputDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "FailedTests");
+        Directory.CreateDirectory(outputDir);
+
+        var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+        var fileName = $"{_testName}_{timestamp}.png";
+        var filePath = Path.Combine(outputDir, fileName);
+
+        var drawer = new TagCloudDrawer(_layouter.Rectangles);
+        drawer.DrawRectanglesToFile(filePath);
+
+        Console.WriteLine($"Tag cloud visualization saved to file {filePath}");
+        TestContext.WriteLine($"Tag cloud visualization saved to file {filePath}");
+    }
+
     [Test]
     public void PutNextRectangle_ShouldAddRectangleToCollection()
     {
-        var center = new Point(100, 100);
-        var generator = new SpiralCoordinateGenerator(center, 0.1);
-        var layouter = new CircularCloudLayouter(center, generator);
+        var rectangle = _layouter.PutNextRectangle(new Size(50, 30));
         
-        var rectangle = layouter.PutNextRectangle(new Size(50, 30));
-        
-        Assert.That(layouter.Rectangles, Contains.Item(rectangle));
+        Assert.That(_layouter.Rectangles, Contains.Item(rectangle));
     }
 
     [Test]
     public void PutNextRectangle_ShouldReturnRectangleWithCorrectSize()
     {
-        var center = new Point(100, 100);
-        var generator = new SpiralCoordinateGenerator(center, 0.1);
-        var layouter = new CircularCloudLayouter(center, generator);
-        
         var size = new Size(50, 30);
-        var rectangle = layouter.PutNextRectangle(size);
+        var rectangle = _layouter.PutNextRectangle(size);
+        
         Assert.Multiple(() =>
         {
             Assert.That(rectangle.Width, Is.EqualTo(50));
@@ -37,12 +70,8 @@ public class CircularCloudLayouterTests
     [Test]
     public void PutNextRectangle_TwoRectangles_ShouldNotIntersect()
     {
-        var center = new Point(100, 100);
-        var generator = new SpiralCoordinateGenerator(center, 0.1);
-        var layouter = new CircularCloudLayouter(center, generator);
-        
-        var rect1 = layouter.PutNextRectangle(new Size(50, 30));
-        var rect2 = layouter.PutNextRectangle(new Size(40, 40));
+        var rect1 = _layouter.PutNextRectangle(new Size(50, 30));
+        var rect2 = _layouter.PutNextRectangle(new Size(40, 40));
         
         Assert.That(rect1.IntersectsWith(rect2), Is.False);
     }
@@ -50,13 +79,10 @@ public class CircularCloudLayouterTests
     [Test]
     public void PutNextRectangle_MultipleRectangles_ShouldNotIntersect()
     {
-        var center = new Point(100, 100);
-        var generator = new SpiralCoordinateGenerator(center, 0.1);
-        var layouter = new CircularCloudLayouter(center, generator);
+        var rect1 = _layouter.PutNextRectangle(new Size(50, 30));
+        var rect2 = _layouter.PutNextRectangle(new Size(40, 40));
+        var rect3 = _layouter.PutNextRectangle(new Size(60, 20));
         
-        var rect1 = layouter.PutNextRectangle(new Size(50, 30));
-        var rect2 = layouter.PutNextRectangle(new Size(40, 40));
-        var rect3 = layouter.PutNextRectangle(new Size(60, 20));
         Assert.Multiple(() =>
         {
             Assert.That(rect1.IntersectsWith(rect2), Is.False);
@@ -68,16 +94,12 @@ public class CircularCloudLayouterTests
     [Test]
     public void PutNextRectangle_TenRectangles_ShouldNotIntersect()
     {
-        var center = new Point(100, 100);
-        var generator = new SpiralCoordinateGenerator(center, 0.1);
-        var layouter = new CircularCloudLayouter(center, generator);
-        
         for (var i = 0; i < 10; i++)
         {
-            layouter.PutNextRectangle(new Size(30, 30));
+            _layouter.PutNextRectangle(new Size(30, 30));
         }
 
-        var rectangles = layouter.Rectangles.ToList();
+        var rectangles = _layouter.Rectangles.ToList();
         
         for (var i = 0; i < rectangles.Count; i++)
         {
@@ -91,49 +113,34 @@ public class CircularCloudLayouterTests
     [Test]
     public void Rectangles_InitiallyEmpty()
     {
-        var center = new Point(100, 100);
-        var generator = new SpiralCoordinateGenerator(center, 0.1);
-        var layouter = new CircularCloudLayouter(center, generator);
-        
-        Assert.That(layouter.Rectangles, Is.Empty);
+        Assert.That(_layouter.Rectangles, Is.Empty);
     }
 
     [Test]
     public void Rectangles_AfterAddingOne_CountIsOne()
     {
-        var center = new Point(100, 100);
-        var generator = new SpiralCoordinateGenerator(center, 0.1);
-        var layouter = new CircularCloudLayouter(center, generator);
+        _layouter.PutNextRectangle(new Size(50, 30));
         
-        layouter.PutNextRectangle(new Size(50, 30));
-        
-        Assert.That(layouter.Rectangles, Has.Count.EqualTo(1));
+        Assert.That(_layouter.Rectangles, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void Rectangles_AfterAddingThree_CountIsThree()
     {
-        var center = new Point(100, 100);
-        var generator = new SpiralCoordinateGenerator(center, 0.1);
-        var layouter = new CircularCloudLayouter(center, generator);
+        _layouter.PutNextRectangle(new Size(50, 30));
+        _layouter.PutNextRectangle(new Size(40, 40));
+        _layouter.PutNextRectangle(new Size(60, 20));
         
-        layouter.PutNextRectangle(new Size(50, 30));
-        layouter.PutNextRectangle(new Size(40, 40));
-        layouter.PutNextRectangle(new Size(60, 20));
-        
-        Assert.That(layouter.Rectangles, Has.Count.EqualTo(3));
+        Assert.That(_layouter.Rectangles, Has.Count.EqualTo(3));
     }
 
     [Test]
     public void PutNextRectangle_DifferentSizes_ShouldNotIntersect()
     {
-        var center = new Point(100, 100);
-        var generator = new SpiralCoordinateGenerator(center, 0.1);
-        var layouter = new CircularCloudLayouter(center, generator);
+        var rect1 = _layouter.PutNextRectangle(new Size(10, 10));
+        var rect2 = _layouter.PutNextRectangle(new Size(100, 50));
+        var rect3 = _layouter.PutNextRectangle(new Size(30, 80));
         
-        var rect1 = layouter.PutNextRectangle(new Size(10, 10));
-        var rect2 = layouter.PutNextRectangle(new Size(100, 50));
-        var rect3 = layouter.PutNextRectangle(new Size(30, 80));
         Assert.Multiple(() =>
         {
             Assert.That(rect1.IntersectsWith(rect2), Is.False);
@@ -145,16 +152,12 @@ public class CircularCloudLayouterTests
     [Test]
     public void PutNextRectangle_ManyRectangles_ShouldNotIntersect()
     {
-        var center = new Point(100, 100);
-        var generator = new SpiralCoordinateGenerator(center, 0.1);
-        var layouter = new CircularCloudLayouter(center, generator);
-        
         for (var i = 0; i < 50; i++)
         {
-            layouter.PutNextRectangle(new Size(20, 20));
+            _layouter.PutNextRectangle(new Size(20, 20));
         }
 
-        var rectangles = layouter.Rectangles.ToList();
+        var rectangles = _layouter.Rectangles.ToList();
         
         for (var i = 0; i < rectangles.Count; i++)
         {
