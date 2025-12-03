@@ -34,5 +34,5 @@ public class CircularCloudLayouter
         return rectangle;
     }
 
-    public ICollection<Rectangle> Rectangles => _rectangles.AsReadOnly();
+    public IReadOnlyCollection<Rectangle> Rectangles => _rectangles.AsReadOnly();
 }
